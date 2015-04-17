@@ -166,6 +166,7 @@ bool Flusher::step(GlobalTask *task) {
             if (_state == pausing) {
                 transition_state(paused);
             }
+            store->commitShard(shard);
             // Indefinitely put task to sleep..
             task->snooze(INT_MAX);
             return true;
@@ -175,6 +176,7 @@ bool Flusher::step(GlobalTask *task) {
                 if (_state == running) {
                     double tosleep = computeMinSleepTime();
                     if (tosleep > 0) {
+                        store->commitShard(shard);
                         task->snooze(tosleep);
                     }
                 }
@@ -215,9 +217,11 @@ bool Flusher::step(GlobalTask *task) {
 }
 
 void Flusher::completeFlush() {
-    while(!canSnooze()) {
+    while (!canSnooze()) {
         flushVB();
     }
+
+    store->commitShard(shard);
 }
 
 double Flusher::computeMinSleepTime() {
@@ -240,7 +244,6 @@ void Flusher::flushVB(void) {
     //initialize flusher to maximum number of vbuckets
     //supported in the shard
     uint16_t numVbs = numVbuckets;
-    bool commit = false;
 
     if (lpVbs.empty()) {
         if (hpVbs.empty()) {
@@ -288,10 +291,7 @@ void Flusher::flushVB(void) {
         uint16_t vbid = lpVbs.front();
         lpVbs.pop();
         numVbs--;
-        if (lpVbs.size() == 1) {
-            commit = true;
-        }
-        if (store->flushVBucket(vbid, numVbs, commit) == RETRY_FLUSH_VBUCKET) {
+        if (store->flushVBucket(vbid, numVbs) == RETRY_FLUSH_VBUCKET) {
             lpVbs.push(vbid);
         }
     }

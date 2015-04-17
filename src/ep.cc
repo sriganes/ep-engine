@@ -3046,6 +3046,23 @@ void EventuallyPersistentStore::flushOneDeleteAll() {
     setFlushAllComplete();
 }
 
+void EventuallyPersistentStore::commitShard(KVShard *shard) {
+    KVStatsCallback cb(this);
+    KVStore *rwUnderlying = shard->getRWUnderlying();
+    std::list<PersistenceCallback *> pcbs = rwUnderlying->getPersistenceCallbacks();
+
+    while (!rwUnderlying->commit(&cb, 0, 0, 0, 0)) {
+        LOG(EXTENSION_LOG_WARNING, "Flusher commit failed!!! Retry in "
+            "1 sec...\n");
+        sleep(1);
+    }
+
+    while (!pcbs.empty()) {
+        delete pcbs.front();
+        pcbs.pop_front();
+    }
+}
+
 int EventuallyPersistentStore::flushVBucket(uint16_t vbid, uint16_t numVbsLeft,
                                             bool commit) {
     KVShard *shard = vbMap.getShard(vbid);
@@ -3166,15 +3183,15 @@ int EventuallyPersistentStore::flushVBucket(uint16_t vbid, uint16_t numVbsLeft,
                     sleep(1);
                 }
 
-                if (vb->rejectQueue.empty()) {
-                    vb->setPersistedSnapshot(range.start, range.end);
-                    uint64_t highSeqno = rwUnderlying->getLastPersistedSeqno(vbid);
-                    if (highSeqno > 0 &&
-                        highSeqno != vbMap.getPersistenceSeqno(vbid)) {
-                        vbMap.setPersistenceSeqno(vbid, highSeqno);
-                        vb->notifySeqnoPersisted(highSeqno);
-                    }
-                }
+                //if (vb->rejectQueue.empty()) {
+                //    vb->setPersistedSnapshot(range.start, range.end);
+                //    uint64_t highSeqno = rwUnderlying->getLastPersistedSeqno(vbid);
+                //    if (highSeqno > 0 &&
+                //        highSeqno != vbMap.getPersistenceSeqno(vbid)) {
+                //        vbMap.setPersistenceSeqno(vbid, highSeqno);
+                //        vb->notifySeqnoPersisted(highSeqno);
+                //    }
+                //}
 
                 while (!pcbs.empty()) {
                     delete pcbs.front();
@@ -3194,6 +3211,16 @@ int EventuallyPersistentStore::flushVBucket(uint16_t vbid, uint16_t numVbsLeft,
                 stats.cumulativeFlushTime.fetch_add(ep_current_time()
                                                     - flush_start);
                 stats.flusher_todo.store(0);
+            }
+        }
+
+        if (vb->rejectQueue.empty()) {
+            vb->setPersistedSnapshot(range.start, range.end);
+            uint64_t highSeqno = rwUnderlying->getLastPersistedSeqno(vbid);
+            if (highSeqno > 0 &&
+                    highSeqno != vbMap.getPersistenceSeqno(vbid)) {
+                vbMap.setPersistenceSeqno(vbid, highSeqno);
+                vb->notifySeqnoPersisted(highSeqno);
             }
         }
 

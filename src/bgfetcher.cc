@@ -107,8 +107,6 @@ bool BgFetcher::run(GlobalTask *task) {
     bool inverse = true;
     pendingFetch.compare_exchange_strong(inverse, false);
 
-    fprintf(stderr, "DEBUG: Running the bgfetch task\n");
-
     std::vector<uint16_t> bg_vbs;
     LockHolder lh(queueMutex);
     std::set<uint16_t>::iterator it = pendingVbs.begin();
@@ -121,11 +119,9 @@ bool BgFetcher::run(GlobalTask *task) {
     std::vector<uint16_t>::iterator ita = bg_vbs.begin();
     for (; ita != bg_vbs.end(); ++ita) {
         uint16_t vbId = *ita;
-        fprintf(stderr, "DEBUG: Found vbucket id: %d\n", vbId);
         if (store->getVBuckets().isBucketCreation(vbId)) {
             // Requeue the bg fetch task if a vbucket DB file is not
             // created yet.
-            fprintf(stderr, "DEBUG: Requeuing vbucket\n");
             lh.lock();
             pendingVbs.insert(vbId);
             lh.unlock();

@@ -296,6 +296,9 @@ private:
     fdb_kvs_handle *getKvsHandle(uint16_t vbId);
     void commitCallback(std::vector<ForestRequest *> &committedReqs);
     bool save2forestdb(Callback<kvstats_ctx> *cb);
+    GetValue docToItem(fdb_kvs_handle *kvsHandle, fdb_doc *rdoc, uint16_t vbId,
+                       bool metaOnly = false, bool fetchDelete = false);
+    ENGINE_ERROR_CODE forestErr2EngineErr(fdb_status errCode);
 };
 
 #endif  // SRC_FOREST_KVSTORE_FOREST_KVSTORE_H_
