@@ -29,6 +29,9 @@
 #include "item.h"
 #include "configuration.h"
 
+//Forward declaration
+class PersistenceCallback;
+
 class VBucketBGFetchItem {
 public:
     VBucketBGFetchItem(const void *c, bool meta_only) :
@@ -427,6 +430,7 @@ public:
      */
     virtual std::vector<vbucket_state *> listPersistedVbuckets(void) = 0;
 
+    virtual std::list<PersistenceCallback *>& getPersistenceCallbacks(void) = 0;
 
     /**
      * Get a list of all persisted engine and tap stats. This API is mainly
@@ -459,7 +463,8 @@ public:
 
     virtual vbucket_state *getVBucketState(uint16_t vbid) = 0;
 
-    virtual int updateVBState(uint16_t vbucketId, vbucket_state *vbState) = 0;
+    virtual ENGINE_ERROR_CODE updateVBState(uint16_t vbucketId,
+                                            vbucket_state *vbState) = 0;
 
     /**
      * Check if the underlying store supports dumping all of the keys

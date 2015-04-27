@@ -237,6 +237,11 @@ void Flusher::flushVB(void) {
         return;
     }
 
+    //initialize flusher to maximum number of vbuckets
+    //supported in the shard
+    uint16_t numVbs = numVbuckets;
+    bool commit = false;
+
     if (lpVbs.empty()) {
         if (hpVbs.empty()) {
             doHighPriority = false;
@@ -272,7 +277,8 @@ void Flusher::flushVB(void) {
     } else if (!hpVbs.empty()) {
         uint16_t vbid = hpVbs.front();
         hpVbs.pop();
-        if (store->flushVBucket(vbid) == RETRY_FLUSH_VBUCKET) {
+        numVbs--;
+        if (store->flushVBucket(vbid, numVbs) == RETRY_FLUSH_VBUCKET) {
             hpVbs.push(vbid);
         }
     } else {
@@ -281,7 +287,11 @@ void Flusher::flushVB(void) {
         }
         uint16_t vbid = lpVbs.front();
         lpVbs.pop();
-        if (store->flushVBucket(vbid) == RETRY_FLUSH_VBUCKET) {
+        numVbs--;
+        if (lpVbs.size() == 1) {
+            commit = true;
+        }
+        if (store->flushVBucket(vbid, numVbs, commit) == RETRY_FLUSH_VBUCKET) {
             lpVbs.push(vbid);
         }
     }

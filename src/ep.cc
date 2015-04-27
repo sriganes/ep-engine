@@ -2995,7 +2995,7 @@ private:
     }
 
     const queued_item queuedItem;
-    RCPtr<VBucket> &vbucket;
+    RCPtr<VBucket> vbucket;
     EventuallyPersistentStore *store;
     EPStats *stats;
     uint64_t cas;
@@ -3041,7 +3041,8 @@ void EventuallyPersistentStore::flushOneDeleteAll() {
     setFlushAllComplete();
 }
 
-int EventuallyPersistentStore::flushVBucket(uint16_t vbid) {
+int EventuallyPersistentStore::flushVBucket(uint16_t vbid, uint16_t numVbsLeft,
+                                            bool commit) {
     KVShard *shard = vbMap.getShard(vbid);
     if (diskFlushAll && !flushAllTaskCtx.delayFlushAll) {
         if (shard->getId() == EP_PRIMARY_SHARD) {
@@ -3094,7 +3095,7 @@ int EventuallyPersistentStore::flushVBucket(uint16_t vbid) {
             uint64_t maxSeqno = 0;
             uint64_t maxCas = 0;
             uint64_t maxDeletedRevSeqno = 0;
-            std::list<PersistenceCallback*> pcbs;
+            std::list<PersistenceCallback*> pcbs = rwUnderlying->getPersistenceCallbacks();
             std::vector<queued_item>::iterator it = items.begin();
             for(; it != items.end(); ++it) {
                 if ((*it)->getOperation() != queue_op_set &&
@@ -3151,42 +3152,44 @@ int EventuallyPersistentStore::flushVBucket(uint16_t vbid) {
                 rwUnderlying->updateVBState(vb->getId(), vbState);
             }
 
-            while (!rwUnderlying->commit(&cb, range.start, range.end, maxCas,
-                                         vb->getDriftCounter())) {
-                ++stats.commitFailed;
-                LOG(EXTENSION_LOG_WARNING, "Flusher commit failed!!! Retry in "
-                    "1 sec...\n");
-                sleep(1);
-            }
-
-            if (vb->rejectQueue.empty()) {
-                vb->setPersistedSnapshot(range.start, range.end);
-                uint64_t highSeqno = rwUnderlying->getLastPersistedSeqno(vbid);
-                if (highSeqno > 0 &&
-                    highSeqno != vbMap.getPersistenceSeqno(vbid)) {
-                    vbMap.setPersistenceSeqno(vbid, highSeqno);
-                    vb->notifySeqnoPersisted(highSeqno);
+            if (!numVbsLeft || commit) {
+                while (!rwUnderlying->commit(&cb, range.start, range.end, maxCas,
+                                             vb->getDriftCounter())) {
+                    ++stats.commitFailed;
+                    LOG(EXTENSION_LOG_WARNING, "Flusher commit failed!!! Retry in "
+                        "1 sec...\n");
+                    sleep(1);
                 }
+
+                if (vb->rejectQueue.empty()) {
+                    vb->setPersistedSnapshot(range.start, range.end);
+                    uint64_t highSeqno = rwUnderlying->getLastPersistedSeqno(vbid);
+                    if (highSeqno > 0 &&
+                        highSeqno != vbMap.getPersistenceSeqno(vbid)) {
+                        vbMap.setPersistenceSeqno(vbid, highSeqno);
+                        vb->notifySeqnoPersisted(highSeqno);
+                    }
+                }
+
+                while (!pcbs.empty()) {
+                    delete pcbs.front();
+                    pcbs.pop_front();
+                }
+
+                ++stats.flusherCommits;
+                hrtime_t end = gethrtime();
+                uint64_t commit_time = (end - start) / 1000000;
+                uint64_t trans_time = (end - flush_start) / 1000000;
+
+                lastTransTimePerItem = (items_flushed == 0) ? 0 :
+                    static_cast<double>(trans_time) /
+                    static_cast<double>(items_flushed);
+                stats.commit_time.store(commit_time);
+                stats.cumulativeCommitTime.fetch_add(commit_time);
+                stats.cumulativeFlushTime.fetch_add(ep_current_time()
+                                                    - flush_start);
+                stats.flusher_todo.store(0);
             }
-
-            while (!pcbs.empty()) {
-                delete pcbs.front();
-                pcbs.pop_front();
-            }
-
-            ++stats.flusherCommits;
-            hrtime_t end = gethrtime();
-            uint64_t commit_time = (end - start) / 1000000;
-            uint64_t trans_time = (end - flush_start) / 1000000;
-
-            lastTransTimePerItem = (items_flushed == 0) ? 0 :
-                static_cast<double>(trans_time) /
-                static_cast<double>(items_flushed);
-            stats.commit_time.store(commit_time);
-            stats.cumulativeCommitTime.fetch_add(commit_time);
-            stats.cumulativeFlushTime.fetch_add(ep_current_time()
-                                                - flush_start);
-            stats.flusher_todo.store(0);
         }
 
         rwUnderlying->pendingTasks();

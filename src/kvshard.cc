@@ -45,7 +45,7 @@ KVShard::KVShard(uint16_t id, EventuallyPersistentStore &store) :
         roUnderlying = rwUnderlying;
     }
 
-    flusher = new Flusher(&store, this);
+    flusher = new Flusher(&store, this, maxVbuckets/config.getMaxNumShards());
     bgFetcher = new BgFetcher(&store, this, stats);
 }
 

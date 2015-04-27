@@ -167,6 +167,13 @@ class ForestKVStore : public KVStore
     void del(const Item &itm, Callback<int> &cb);
 
     /**
+     * Perform the pre-optimizations before persisting dirty items
+     *
+     * @param items list of dirty items that can be pre-optimized
+     */
+    void optimizeWrites(std::vector<queued_item> &items);
+
+    /**
      * Delete a given vbucket database instance from the
      * underlying storage system
      *
@@ -181,6 +188,8 @@ class ForestKVStore : public KVStore
      * value is vbucket state
      */
     std::vector<vbucket_state *>  listPersistedVbuckets(void);
+
+    std::list<PersistenceCallback *>& getPersistenceCallbacks(void);
 
     /**
      * Persist a snapshot of the engine stats in the underlying storage.
@@ -215,7 +224,7 @@ class ForestKVStore : public KVStore
 
     vbucket_state *getVBucketState(uint16_t vbid);
 
-    int updateVBState(uint16_t vbucketId, vbucket_state *vbState);
+    ENGINE_ERROR_CODE updateVBState(uint16_t vbucketId, vbucket_state *vbState);
 
     /**
      * Do a rollback to the specified sequence number on the particular vbucket
@@ -277,6 +286,7 @@ private:
     fdb_config fileConfig;
     fdb_kvs_config kvsConfig;
     std::vector<ForestRequest *> pendingReqsQ;
+    std::list<PersistenceCallback *> pcbs;
 
 private:
     void close();
@@ -284,6 +294,8 @@ private:
     fdb_kvs_config getKVConfig();
     void readVBState(uint16_t vbId);
     fdb_kvs_handle *getKvsHandle(uint16_t vbId);
+    void commitCallback(std::vector<ForestRequest *> &committedReqs);
+    bool save2forestdb(Callback<kvstats_ctx> *cb);
 };
 
 #endif  // SRC_FOREST_KVSTORE_FOREST_KVSTORE_H_

@@ -776,7 +776,7 @@ public:
      * @param vbid The id of the vbucket to flush
      * @return The amount of items flushed
      */
-    int flushVBucket(uint16_t vbid);
+    int flushVBucket(uint16_t vbid, uint16_t numVbsLeft, bool commit=false);
 
     void addKVStoreStats(ADD_STAT add_stat, const void* cookie);
 

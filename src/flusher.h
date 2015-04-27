@@ -55,10 +55,11 @@ class KVShard;
 class Flusher {
 public:
 
-    Flusher(EventuallyPersistentStore *st, KVShard *k) :
+    Flusher(EventuallyPersistentStore *st, KVShard *k, uint16_t numVbs) :
         store(st), _state(initializing), taskId(0), minSleepTime(0.1),
         forceShutdownReceived(false), doHighPriority(false),
-        numHighPriority(0), pendingMutation(false), shard(k) { }
+        numHighPriority(0), pendingMutation(false), shard(k),
+        numVbuckets(numVbs) { }
 
     ~Flusher() {
         if (_state != stopped) {
@@ -101,7 +102,11 @@ private:
     const char * stateName(enum flusher_state st) const;
 
     bool canSnooze(void) {
-        return lpVbs.empty() && hpVbs.empty() && !pendingMutation.load();
+        if (lpVbs.empty() && hpVbs.empty() && !pendingMutation.load()) {
+            return true;
+        }
+   
+        return false;
     }
 
     EventuallyPersistentStore   *store;
@@ -117,8 +122,8 @@ private:
     bool doHighPriority;
     size_t numHighPriority;
     AtomicValue<bool> pendingMutation;
-
     KVShard *shard;
+    uint16_t numVbuckets;
 
     DISALLOW_COPY_AND_ASSIGN(Flusher);
 };

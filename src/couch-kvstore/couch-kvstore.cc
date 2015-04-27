@@ -568,6 +568,10 @@ std::vector<vbucket_state *> CouchKVStore::listPersistedVbuckets() {
     return cachedVBStates;
 }
 
+std::list<PersistenceCallback *>& CouchKVStore::getPersistenceCallbacks() {
+    return pcbs;
+}
+
 void CouchKVStore::getPersistedStats(std::map<std::string,
                                      std::string> &stats) {
     char *buffer = NULL;
@@ -900,8 +904,9 @@ bool CouchKVStore::compactVBucket(const uint16_t vbid,
 }
 
 
-int CouchKVStore::updateVBState(uint16_t vbucketId, vbucket_state *vbState) {
-    return 0;
+ENGINE_ERROR_CODE CouchKVStore::updateVBState(uint16_t vbucketId,
+                                              vbucket_state *vbState) {
+    return ENGINE_SUCCESS;
 }
 
 vbucket_state * CouchKVStore::getVBucketState(uint16_t vbucketId) {

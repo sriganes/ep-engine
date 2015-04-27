@@ -285,7 +285,8 @@ vbucket_state * ForestKVStore::getVBucketState(uint16_t vbucketId) {
     return cachedVBStates[vbucketId];
 }
 
-int ForestKVStore::updateVBState(uint16_t vbucketId, vbucket_state *vbState) {
+ENGINE_ERROR_CODE ForestKVStore::updateVBState(uint16_t vbucketId,
+                                               vbucket_state *vbState) {
     std::stringstream jsonState;
     jsonState << "{\"state\": \"" << VBucket::toString(vbState->state) << "\""
               << ",\"checkpoint_id\": \"" << vbState->checkpointId << "\""
@@ -307,19 +308,71 @@ int ForestKVStore::updateVBState(uint16_t vbucketId, vbucket_state *vbState) {
     statDoc.metalen = 0;
     statDoc.body = const_cast<char *>(state.c_str());
     statDoc.bodylen = state.length();
-    fdb_status status = fdb_set(vbStateHandle, &statDoc);
+    statDoc.deleted = false;
+    fdb_kvs_handle *stateHandle;
+    fdb_kvs_open(dbFileHandle, &stateHandle, "vbstate", &kvsConfig);
+    fdb_status status = fdb_set(stateHandle, &statDoc);
 
     if (status != FDB_RESULT_SUCCESS) {
         LOG(EXTENSION_LOG_WARNING, "Failed to save vbucket state for "
             "vbucket=%d error=%s", vbucketId, fdb_error_msg(status));
+        return ENGINE_FAILED;
     }
 
-    return status;
+    fdb_kvs_close(stateHandle); 
+
+    return ENGINE_SUCCESS;
 }
 
 bool ForestKVStore::commit(Callback<kvstats_ctx> *cb, uint64_t snapStartSeqno,
                            uint64_t snapEndSeqno, uint64_t maxCas,
                            uint64_t driftCounter) {
+    if (intransaction) {
+        if (save2forestdb(cb)) {
+            intransaction = false;
+        }
+    }
+
+    return !intransaction;
+}
+
+void ForestKVStore::commitCallback(std::vector<ForestRequest *> &committedReqs) {
+    size_t commitSize = committedReqs.size();
+    int rv;
+
+    for (size_t index = 0; index < commitSize; index++) {
+        rv = committedReqs[index]->getStatus();
+        if (committedReqs[index]->isDelete()) {
+            committedReqs[index]->getDelCallback()->callback(rv);
+        } else {
+            mutation_result p(rv, false);
+            committedReqs[index]->getSetCallback()->callback(p);
+        }
+    }
+}
+
+bool ForestKVStore::save2forestdb(Callback<kvstats_ctx> *cb) {
+    size_t pendingCommitCnt = pendingReqsQ.size();
+    if (pendingCommitCnt == 0) {
+        return true;
+    }
+
+    cb_assert(pendingReqsQ[0]);
+
+    fdb_status status = fdb_commit(dbFileHandle, FDB_COMMIT_NORMAL);
+    if (status != FDB_RESULT_SUCCESS) {
+        LOG(EXTENSION_LOG_WARNING,
+            "fdb_commit failed with error:%s", fdb_error_msg(status));
+    }
+
+    commitCallback(pendingReqsQ);
+
+    for (size_t i = 0; i < pendingCommitCnt; ++i) {
+        delete pendingReqsQ[i];
+    }
+
+    pendingReqsQ.clear();
+
     return true;
 }
 
@@ -496,8 +549,21 @@ void ForestKVStore::del(const Item &itm, Callback<int> &cb) {
     pendingReqsQ.push_back(req);
 }
 
+void ForestKVStore::optimizeWrites(std::vector<queued_item> &items) {
+    cb_assert(!isReadOnly());
+    if (items.empty()) {
+        return;
+    }
+    CompareQueuedItemsBySeqnoAndKey cq;
+    std::sort(items.begin(), items.end(), cq);
+}
+
 std::vector<vbucket_state *> ForestKVStore::listPersistedVbuckets(void) {
     return cachedVBStates;
+}
+
+std::list<PersistenceCallback *>& ForestKVStore::getPersistenceCallbacks(void) {
+    return pcbs;
 }
 
 DBFileInfo ForestKVStore::getDbFileInfo(uint16_t dbId) {

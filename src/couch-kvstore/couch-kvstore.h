@@ -327,6 +327,8 @@ public:
      */
    std::vector<vbucket_state *>  listPersistedVbuckets(void);
 
+   std::list<PersistenceCallback *>& getPersistenceCallbacks(void);
+
     /**
      * Retrieve ths list of persisted engine stats
      *
@@ -367,7 +369,7 @@ public:
 
     vbucket_state *getVBucketState(uint16_t vbid);
 
-    int updateVBState(uint16_t vbucketId, vbucket_state *vbState);
+    ENGINE_ERROR_CODE updateVBState(uint16_t vbucketId, vbucket_state *vbState);
 
     /**
      * Does the underlying storage system support key-only retrieval operations?
@@ -548,6 +550,7 @@ private:
     std::vector<uint64_t>dbFileRevMap;
     uint16_t numDbFiles;
     std::vector<CouchRequest *> pendingReqsQ;
+    std::list<PersistenceCallback *> pcbs;
     bool intransaction;
 
     /* all stats */
