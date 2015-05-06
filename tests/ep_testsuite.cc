@@ -8448,8 +8448,13 @@ static enum test_result test_disk_gt_ram_golden(ENGINE_HANDLE *h,
     int itemsRemoved = get_int_stat(h, h1, "ep_items_rm_from_checkpoints");
     // Store some data and check post-set state.
     wait_for_persisted_value(h, h1, "k1", "some value");
+
+    fprintf(stderr, "DEBUG: Done with persisting value\n");
+
     testHarness.time_travel(65);
     wait_for_stat_change(h, h1, "ep_items_rm_from_checkpoints", itemsRemoved);
+
+    fprintf(stderr, "DEBUG: Done with persisting value\n");
 
     cb_assert(0 == get_int_stat(h, h1, "ep_bg_fetched"));
     cb_assert(1 == get_int_stat(h, h1, "ep_total_enqueued"));
@@ -8460,6 +8465,8 @@ static enum test_result test_disk_gt_ram_golden(ENGINE_HANDLE *h,
 
     // Evict the data.
     evict_key(h, h1, "k1");
+
+    fprintf(stderr, "DEBUG: Done evicting the data\n");
 
     int kv_size2 = get_int_stat(h, h1, "ep_kv_size");
     int mem_used2 = get_int_stat(h, h1, "mem_used");

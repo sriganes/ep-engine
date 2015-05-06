@@ -1837,6 +1837,8 @@ void EventuallyPersistentStore::bgFetch(const std::string &key,
                                         bool isMeta) {
     std::stringstream ss;
 
+    LOG(EXTENSION_LOG_WARNING, "bgFetch: Entering bgFetch\n");
+
     if (multiBGFetchEnabled()) {
         RCPtr<VBucket> vb = getVBucket(vbucket);
         cb_assert(vb);
@@ -1846,6 +1848,9 @@ void EventuallyPersistentStore::bgFetch(const std::string &key,
         // vbucket
         VBucketBGFetchItem * fetchThis = new VBucketBGFetchItem(cookie,
                                                                 isMeta);
+
+        LOG(EXTENSION_LOG_WARNING, "bgFetch: About to queue a bgfetch\n");
+
         vb->queueBGFetchItem(key, fetchThis, myShard->getBgFetcher());
         myShard->getBgFetcher()->notifyBGEvent();
         ss << "Queued a background fetch, now at "
