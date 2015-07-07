@@ -505,7 +505,7 @@ bool ExecutorPool::_stopTaskGroup(EventuallyPersistentEngine *e,
     std::map<size_t, TaskQpair>::iterator itr;
 
     LockHolder lh(tMutex);
-    LOG(EXTENSION_LOG_DEBUG, "Stopping %d type tasks in bucket %s", taskType,
+    LOG(EXTENSION_LOG_WARNING, "Stopping %d type tasks in bucket %s", taskType,
             e->getName());
     do {
         ExTask task;
@@ -515,7 +515,7 @@ bool ExecutorPool::_stopTaskGroup(EventuallyPersistentEngine *e,
             TaskQueue *q = itr->second.second;
             if (task->getEngine() == e &&
                 (taskType == NO_TASK_TYPE || q->queueType == taskType)) {
-                LOG(EXTENSION_LOG_DEBUG, "Stopping Task id %d %s ",
+                LOG(EXTENSION_LOG_WARNING, "Stopping Task id %d %s ",
                         task->getId(), task->getDescription().c_str());
                 if (!task->blockShutdown) {
                     task->cancel(); // Must be idempotent
@@ -596,6 +596,9 @@ void ExecutorPool::_unregisterBucket(EventuallyPersistentEngine *engine) {
             isLowPrioQset = false;
         }
     }
+
+    LOG(EXTENSION_LOG_WARNING, "Done Unregistering %s bucket %s",
+            (numBuckets == 1)? "last" : "", engine->getName());
 }
 
 void ExecutorPool::unregisterBucket(EventuallyPersistentEngine *engine) {

@@ -45,7 +45,14 @@ bool FlusherTask::run() {
 }
 
 bool VBSnapshotTask::run() {
+
+    uint64_t begin, end;
+    begin = gethrtime();
+    LOG(EXTENSION_LOG_WARNING, "Start snapshot for shard: %d\n", shardID);
     engine->getEpStore()->snapshotVBuckets(priority, shardID);
+    end = gethrtime();
+    LOG(EXTENSION_LOG_WARNING, "End snapshot for shard: %d, Time taken: %llu\n",
+        shardID, (end - begin)/1000000);
     return false;
 }
 

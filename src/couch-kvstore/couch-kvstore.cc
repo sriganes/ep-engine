@@ -942,6 +942,7 @@ bool CouchKVStore::snapshotVBucket(uint16_t vbucketId, vbucket_state &vbstate,
                 VBucket::toString(vbstate.state), vbucketId);
         return false;
     }
+
     return true;
 }
 
