@@ -590,13 +590,6 @@ process_items_error_t DcpConsumer::processBufferedItems() {
         } while (bytes_processed > 0 && process_ret != cannot_process);
     }
 
-    if (isBufferSufficientlyDrained(flowControl.freedBytes.load())) {
-        /* Notify memcached to get flow control buffer ack out. We cannot wait
-           till the ConnManager daemon task notifies the memcached as it would
-           cause delay in buffer ack being sent out to the producer */
-        engine_.getDcpConnMap().notifyPausedConnection(this, false);
-    }
-
     if (process_ret == all_processed && itemsToProcess.load()) {
         return more_to_process;
     }
@@ -753,7 +746,7 @@ ENGINE_ERROR_CODE DcpConsumer::handleFlowCtl(struct dcp_message_producers* produ
             ObjectRegistry::onSwitchThread(epe);
             flowControl.pendingControl = false;
             return (ret == ENGINE_SUCCESS) ? ENGINE_WANT_MORE : ret;
-        } else if (isBufferSufficientlyDrained(ackable_bytes)) {
+        } else if (ackable_bytes > (flowControl.bufferSize * .2)) {
             // Send a buffer ack when at least 20% of the buffer is drained
             uint32_t opaque = ++opaqueCounter;
             EventuallyPersistentEngine *epe = ObjectRegistry::onSwitchThread(NULL, true);
@@ -787,9 +780,4 @@ bool DcpConsumer::isStreamPresent(uint16_t vbucket)
         return true;
     }
     return false;
-}
-
-inline bool DcpConsumer::isBufferSufficientlyDrained(uint32_t ackable_bytes)
-{
-    return ackable_bytes > (flowControl.bufferSize * .2);
 }
