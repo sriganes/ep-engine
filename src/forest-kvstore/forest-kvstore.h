@@ -280,7 +280,7 @@ class ForestKVStore : public KVStore
      * return database file id
      */
     uint16_t getDBFileId(const protocol_binary_request_compact_db& req) override {
-        return ntohs(req.message.body.db_file_id);
+        return ntohs(req.message.header.request.vbucket);
     }
 
     /**
@@ -437,6 +437,7 @@ private:
      * and another thread to create a new ForestDB handle
      */
     std::mutex handleLock;
+    std::atomic<bool> isCompactRunning;
 
 private:
     void close();

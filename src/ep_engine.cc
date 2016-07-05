@@ -1056,8 +1056,9 @@ extern "C" {
         compactreq.purge_before_seq =
                                     ntohll(req->message.body.purge_before_seq);
         compactreq.drop_deletes     = req->message.body.drop_deletes;
-        compactreq.db_file_id       = e->getEpStore()->getDBFileId(*req);
-        uint16_t vbid = ntohs(req->message.header.request.vbucket);
+        compactreq.db_file_id   = e->getEpStore()->getDBFileId(*req);
+        const VBucketMap& vbMap = e->getEpStore()->getVBuckets();
+        compactreq.db_file_id = compactreq.db_file_id % vbMap.getNumShards();
 
         ENGINE_ERROR_CODE err;
         void* es = e->getEngineSpecific(cookie);

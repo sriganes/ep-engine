@@ -225,6 +225,8 @@ ForestKVStore::ForestKVStore(KVStoreConfig &config) :
         }
     }
 
+    isCompactRunning = false;
+
     cachedDocCount.assign(maxVbuckets, Couchbase::RelaxedAtomic<size_t>(-1));
     cachedDeleteCount.assign(maxVbuckets, Couchbase::RelaxedAtomic<size_t>(-1));
 }
@@ -1681,7 +1683,19 @@ fdb_compact_decision ForestKVStore::compaction_cb(fdb_file_handle* fhandle,
 
 bool ForestKVStore::compactDB(compaction_ctx* ctx) {
     hrtime_t start = gethrtime();
+<<<<<<< HEAD
+=======
+
+    bool inverse = false;
+
+>>>>>>> c3aa13c... MB-19900: Hack vbucket stats to trigger compaction on a shard
     uint16_t shardId = ctx->db_file_id;
+
+    if (!isCompactRunning.compare_exchange_strong(inverse, true)) {
+        LOG(EXTENSION_LOG_WARNING,
+            "ForestKVStore::compactDB: Compaction is already running "
+            "for shard: %d", shardId);
+    }
 
     std::string dbFileBase = dbname + "/" + std::to_string(shardId) + ".fdb.";
 
@@ -1724,6 +1738,8 @@ bool ForestKVStore::compactDB(compaction_ctx* ctx) {
 
         /* Compaction is complete at this point. Switch to the new file */
         ++dbFileRevNum;
+
+        isCompactRunning = false;
     }
 
     st.compactHisto.add((gethrtime() - start) / 1000);
