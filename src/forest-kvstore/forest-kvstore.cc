@@ -145,6 +145,9 @@ ForestKVStore::ForestKVStore(KVStoreConfig &config) :
      */
     fileConfig.breakpad_minidump_dir = nullptr;
 
+    /* Set the buffer cache value to 3 GiB for testing */
+    fileConfig.buffercache_size = 3221225472;
+
     statCollectingFileOps = getForestStatOps(&st.fsStats);
 
     fileConfig.custom_file_ops = &statCollectingFileOps;
@@ -1683,12 +1686,9 @@ fdb_compact_decision ForestKVStore::compaction_cb(fdb_file_handle* fhandle,
 
 bool ForestKVStore::compactDB(compaction_ctx* ctx) {
     hrtime_t start = gethrtime();
-<<<<<<< HEAD
-=======
 
     bool inverse = false;
 
->>>>>>> c3aa13c... MB-19900: Hack vbucket stats to trigger compaction on a shard
     uint16_t shardId = ctx->db_file_id;
 
     if (!isCompactRunning.compare_exchange_strong(inverse, true)) {
