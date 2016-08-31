@@ -1615,7 +1615,7 @@ ENGINE_ERROR_CODE EventuallyPersistentStore::checkForDBExistence(DBFileId db_fil
 ENGINE_ERROR_CODE EventuallyPersistentStore::scheduleCompaction(uint16_t vbid,
                                                                 compaction_ctx c,
                                                                 const void *cookie) {
-    ENGINE_ERROR_CODE errCode = checkForDBExistence(c.db_file_id);
+    ENGINE_ERROR_CODE errCode = checkForDBExistence(c.db_file_id % vbMap.getNumShards());
     if (errCode != ENGINE_SUCCESS) {
         return errCode;
     }
@@ -1625,6 +1625,8 @@ ENGINE_ERROR_CODE EventuallyPersistentStore::scheduleCompaction(uint16_t vbid,
     if (!vb) {
         return ENGINE_NOT_MY_VBUCKET;
     }
+
+    c.db_file_id = c.db_file_id % vbMap.getNumShards();
 
     /* Update the compaction ctx with the previous purge seqno */
     c.max_purged_seq[vbid] = vb->getPurgeSeqno();

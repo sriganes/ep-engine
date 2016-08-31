@@ -79,6 +79,8 @@ public:
     std::vector<VBucket::id_type> getVBuckets();
     size_t getMaxNumVbuckets() { return maxVbuckets; }
 
+    VBucket::id_type getMinVBucketId();
+
     /**
      * Set the flag to coordinate the scheduled high priority vbucket
      * snapshot and new snapshot requests with the high priority. The

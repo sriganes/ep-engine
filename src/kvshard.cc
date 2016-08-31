@@ -128,6 +128,17 @@ std::vector<VBucket::id_type> KVShard::getVBuckets() {
     return rv;
 }
 
+VBucket::id_type KVShard::getMinVBucketId() {
+    for (size_t i = 0; i < maxVbuckets; ++i) {
+        RCPtr<VBucket> vb = vbuckets[i];
+        if (vb) {
+            return vb->getId();
+        }
+    }
+
+    return 0;
+}
+
 bool KVShard::setHighPriorityVbSnapshotFlag(bool highPriority) {
     bool inverse = !highPriority;
     return highPrioritySnapshot.compare_exchange_strong(inverse, highPriority);

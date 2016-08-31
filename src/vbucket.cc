@@ -709,7 +709,10 @@ void VBucket::addStats(bool details, ADD_STAT add_stat, const void *c,
 
         DBFileInfo fileInfo = shard->getRWUnderlying()->getDbFileInfo(getId());
 
-        if (id == shard->getId()) {
+        if (id == shard->getMinVBucketId()) {
+            LOG(EXTENSION_LOG_WARNING,
+                "DEBUG: Returning stats for vbucket id: %d and minimum vbucket id "
+                "in shard: %d", id, shard->getMinVBucketId());
             addStat("db_data_size", fileInfo.spaceUsed, add_stat, c);
             addStat("db_file_size", fileInfo.fileSize, add_stat, c);
         } else {

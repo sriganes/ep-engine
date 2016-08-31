@@ -1063,14 +1063,13 @@ extern "C" {
         uint16_t shardId = shard->getId();
 
         ENGINE_ERROR_CODE err;
-        if (compactreq.db_file_id == shardId) {
-            compactreq.db_file_id = compactreq.db_file_id % vbMap.getNumShards();
 
+        if (compactreq.db_file_id == shard->getMinVBucketId()) {
             void* es = e->getEngineSpecific(cookie);
             if (es == NULL) {
                 ++stats.pendingCompactions;
                 e->storeEngineSpecific(cookie, e);
-                err = e->compactDB(compactreq, cookie);
+                err = e->compactDB(compactreq.db_file_id, compactreq, cookie);
             } else {
                 e->storeEngineSpecific(cookie, NULL);
                 err = ENGINE_SUCCESS;
